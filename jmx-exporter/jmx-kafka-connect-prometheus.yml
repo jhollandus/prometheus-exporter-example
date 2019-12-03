@@ -1,0 +1,68 @@
+jmxUrl: service:jmx:rmi:///jndi/rmi://connect:9999/jmxrmi
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - "java.lang:type=Memory"
+  - "java.lang:name=*,type=GarbageCollector"
+  - "kafka.connect:*"
+ssl: false
+rules:
+  - pattern: "^java.lang<name=(.+), type=GarbageCollector><>([^:]+):"
+    name: "java_lang_gc_$1_$2"
+
+  - pattern: "^java.lang<type=Memory><(.+)>([^:]+):"
+    name: "java_lang_memory_$1_$2"
+
+  - pattern : "kafka.connect<type=app-info><>version: (.+)"
+    name: "cp_kafka_connect_app_version"
+    value: 1
+    labels:
+      version: $1
+
+  - pattern : "kafka.connect<type=connect-worker-metrics><>([^:]+):"
+    name: "cp_kafka_connect_connect_worker_metrics_$1"
+
+  - pattern : "kafka.connect<type=connect-metrics, client-id=(.+)><>([^:]+):"
+    name: "cp_kafka_connect_connect_metrics_$2"
+    labels:
+      client_id: $1
+
+
+  - pattern : "kafka.connect<type=connect-worker-rebalance-metrics><>([^:]+):"
+    name: "cp_kafka_connect_connect_worker_rebalance_metrics_$1"
+
+  
+  - pattern : "kafka.connect<type=connector-metrics, connector=(.+)><>connector-class: (.+)"
+    name: "cp_kafka_connect_connect_connector_metrics"
+    value: 1
+    labels:
+      connector: $1
+      class: $2
+
+  - pattern : "kafka.connect<type=connector-metrics, connector=(.+)><>connector-version: (.+)"
+    name: "cp_kafka_connect_connect_connector_metrics"
+    value: 1
+    labels:
+      connector: $1
+      version: $2
+
+  - pattern : "kafka.connect<type=connector-metrics, connector=(.+)><>connector-type: (.+)"
+    name: "cp_kafka_connect_connect_connector_metrics"
+    value: 1
+    labels:
+      connector: $1
+      connector_type: $2
+
+  - pattern : "kafka.connect<type=connector-metrics, connector=(.+)><>status: (.+)"
+    name: "cp_kafka_connect_connect_connector_metrics"
+    value: 1
+    labels:
+      connector: $1
+      status: $2
+
+  - pattern : "kafka.connect<type=task-error-metrics, connector=(.+), task=(.+)><>([^:]+):"
+    name: "cp_kafka_connect_connect_connector_task_error_metrics_$3"
+    labels:
+      connector: $1
+      task: $2
+

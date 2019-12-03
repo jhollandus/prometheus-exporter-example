@@ -1,0 +1,31 @@
+#!/bin/bash
+
+if [ "$#" -ne 1 ]; then
+    echo "Usage: connector-install <connector directory>"
+    echo ""
+    echo "Example: connector-install file-connectors"
+    exit 1
+fi
+
+pushd $1
+
+TOPICS="$(cat topics.txt)"
+BOOTSTRAP='localhost:29092'
+topicList="$(docker exec kafka kafka-topics --list --bootstrap-server $BOOTSTRAP)"
+
+for t in $TOPICS; do
+    name="$(echo $t | sed -Ee 's/[^-]*--topic=([^,]+),.*/\1/')"
+
+    if ! echo "$topicList" | egrep "^$name$" 1>/dev/null; then
+        echo "INFO: Creating topic $name"
+        eval "docker exec kafka kafka-topics --create $(echo $t | tr ',' ' ') --bootstrap-server $BOOTSTRAP"
+    else
+        echo "INFO: Topic $name already exists"
+    fi
+done
+
+for f in $(ls *.json); do
+     curl --silent -XPOST http://localhost:8083/connectors  -d "@$f" -H 'Content-Type: application/json' -H 'Accept: application/json'
+done
+
+popd

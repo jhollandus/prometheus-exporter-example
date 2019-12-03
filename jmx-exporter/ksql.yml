@@ -1,0 +1,34 @@
+jmxUrl: service:jmx:rmi:///jndi/rmi://ksql-server:9999/jmxrmi
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - "java.lang:type=Memory"
+  - "io.confluent.ksql.metrics:*"
+ssl: false
+rules:
+  - pattern: "^java.lang<type=Memory><(.+)>([^:]+):"
+    name: "java_lang_memory_$1_$2"
+
+  - pattern : "io.confluent.ksql.metrics:type=ksql-engine-query-stats<>([^:]+):"
+    name: "cp_ksql_engine_query_stats_$1"
+
+  - pattern : "io.confluent.ksql.metrics<type=ksql-queries, status=.*__(.+)__.*><>query-status: (.+)"
+    name: "cp_ksql_query_status"
+    value: 1
+    labels:
+      client_id: $1
+      status: $2
+  
+  - pattern: "kafka.streams<type=stream-metrics, client-id=.*__(.+)__.*><>([^:]+):"
+    name: "cp_kstreams_stream_metrics_$2"
+    labels:
+      client_id: $1
+
+  - pattern: "kafka.streams<type=stream-processor-node-metrics, client-id=.*__(.+)__.*, task-id=(.+), processor-node-id=(.+)><>([^:]+):"
+    name: "cp_kstreams_stream_processor_node_metrics_$4"
+    labels:
+      client_id: $1
+      task_id: $2
+      processor_node_id: $3
+
+

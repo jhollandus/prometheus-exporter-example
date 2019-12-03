@@ -1,0 +1,22 @@
+global:
+  scrape_interval:     30s
+  evaluation_interval: 30s
+
+scrape_configs:
+- job_name: connect-main-cluster
+  static_configs:
+  - targets: ['jmx-connect-worker-1:5555','jmx-connect-worker-2:5555']
+    labels:
+      cluster: connect-main
+      env: local
+
+  relabel_configs:
+
+  - source_labels: [__address__]
+    regex: '([^:]+):\d+'
+    target_label: service_instance
+
+  - source_labels: [__address__]
+    regex: 'jmx-([^:]+):\d+'
+    target_label: service_instance
+

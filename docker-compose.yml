@@ -1,0 +1,199 @@
+version: "2.2"
+
+networks:
+    default:
+    connect-worker-1:
+    connect-worker-2:
+
+services:
+
+    zookeeper:
+        image: confluentinc/cp-zookeeper:5.3.1
+        restart: always
+        hostname: zookeeper
+        container_name: zookeeper
+        environment:
+            ZOOKEEPER_SERVER_ID: 1
+            ZOOKEEPER_CLIENT_PORT: "2181"
+            ZOOKEEPER_TICK_TIME: "2000"
+        ports:
+            - "2181:2181"
+        networks:
+            - default
+
+    kafka:
+        image: confluentinc/cp-enterprise-kafka:5.3.1
+        hostname: kafka
+        container_name: kafka
+        depends_on:
+            - zookeeper
+        ports:
+            - "9092:9092"
+            - "29092:29092"
+        networks: 
+            - default
+        environment:
+            KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+            KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_HOST:PLAINTEXT,PLAINTEXT:PLAINTEXT
+            KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_HOST://localhost:9092,PLAINTEXT://kafka:29092
+            KAFKA_BROKER_ID: 1
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+            KAFKA_BROKER_RACK: "r1"
+            KAFKA_DELETE_TOPIC_ENABLE: "true"
+            KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+            KAFKA_JMX_PORT: 9991
+            KAFKA_METRIC_REPORTERS: "io.confluent.metrics.reporter.ConfluentMetricsReporter"
+            CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: "kafka:29092"
+            CONFLUENT_METRICS_REPORTER_MAX_REQUEST_SIZE: 10485760
+            CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+            #Set to false To avoid race condition with control-center
+            CONFLUENT_METRICS_REPORTER_TOPIC_CREATE: "true"
+
+    connect-worker-1:
+        build:
+            context: ./connect/docker
+        hostname: connect-worker-1
+        container_name: connect-worker-1
+        cpus: 0.6
+        restart: always
+        networks: 
+            default:
+            connect-worker-1:
+                aliases:
+                    - connect
+        ports:
+            - "8083:8083"
+            - "9999"
+        depends_on:
+            - zookeeper
+            - kafka
+        environment:
+            CONNECT_BOOTSTRAP_SERVERS: "kafka:29092"
+            CONNECT_REST_PORT: 8083
+            CONNECT_LISTENERS: "http://0.0.0.0:8083"
+            CONNECT_GROUP_ID: "connect"
+            CONNECT_PRODUCER_CLIENT_ID: "connect-worker-producer-1"
+            CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+            CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+            CONNECT_STATUS_STORAGE_TOPIC: connect-statuses
+            CONNECT_REPLICATION_FACTOR: 1
+            CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+            CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_REST_ADVERTISED_HOST_NAME: "connect-worker-1"
+            CONNECT_PLUGIN_PATH: "/usr/share/java"
+            CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+            CONNECT_LOG4J_LOGGERS: org.reflections=ERROR
+            CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-5.3.1.jar
+            KAFKA_JMX_PORT: 9999
+        volumes:
+            - ./connect/file-connectors:/tmp/file-connectors:rw
+
+    jmx-connect-worker-1:
+        image: solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
+        hostname: jmx-connect-worker-1
+        container_name: jmx-connect-worker-1
+        networks:
+            - default
+            - connect-worker-1
+        command:
+            - "5555"
+            - /etc/jmx-kafka-connect/config.yml
+        ports:
+            - "5555"
+        volumes:
+            - ./jmx-exporter:/etc/jmx-kafka-connect
+
+
+    connect-worker-2:
+        build:
+            context: ./connect/docker
+        hostname: connect-worker-2
+        container_name: connect-worker-2
+        cpus: 0.6
+        restart: always
+        networks:
+            default:
+            connect-worker-2:
+                aliases:
+                    - connect
+        ports:
+            - "8083"
+            - "9999"
+        depends_on:
+            - zookeeper
+            - kafka
+        environment:
+            CONNECT_BOOTSTRAP_SERVERS: "kafka:29092"
+            CONNECT_REST_PORT: 8083
+            CONNECT_LISTENERS: "http://0.0.0.0:8083"
+            CONNECT_GROUP_ID: "connect"
+            CONNECT_PRODUCER_CLIENT_ID: "connect-worker-producer-2"
+            CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+            CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+            CONNECT_STATUS_STORAGE_TOPIC: connect-statuses
+            CONNECT_REPLICATION_FACTOR: 1
+            CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+            CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+            CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+            CONNECT_REST_ADVERTISED_HOST_NAME: "connect-worker-2"
+            CONNECT_PLUGIN_PATH: "/usr/share/java"
+            CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+            CONNECT_LOG4J_LOGGERS: org.reflections=ERROR
+            CLASSPATH: /usr/share/java/monitoring-interceptors/monitoring-interceptors-5.3.1.jar
+            KAFKA_JMX_PORT: 9999
+        volumes:
+            - ./connect/file-connectors:/tmp/file-connectors:rw
+
+    jmx-connect-worker-2:
+        image: solsson/kafka-prometheus-jmx-exporter@sha256:6f82e2b0464f50da8104acd7363fb9b995001ddff77d248379f8788e78946143
+        hostname: jmx-connect-worker-2
+        container_name: jmx-connect-worker-2
+        networks:
+            - default
+            - connect-worker-2
+        command:
+            - "5555"
+            - /etc/jmx-kafka-connect/config.yml
+        ports:
+            - "5555"
+        volumes:
+            - ./jmx-exporter:/etc/jmx-kafka-connect
+
+    prometheus:
+        image: prom/prometheus:v2.14.0
+        hostname: prometheus
+        container_name: prometheus
+        volumes:
+            - ./prometheus/:/etc/prometheus/
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/etc/prometheus/console_libraries'
+            - '--web.console.templates=/etc/prometheus/consoles'
+            - '--storage.tsdb.retention.time=200h'
+            - '--web.enable-lifecycle'
+        ports:
+            - "9090:9090"
+
+    grafana:
+        image: grafana/grafana:6.5.0-beta1
+        hostname: grafana
+        container_name: grafana
+        volumes:
+            - ./grafana/provisioning:/etc/grafana/provisioning
+        environment:
+            - GF_USERS_ALLOW_SIGN_UP=false
+            - GF_AUTH_ANONYMOUS_ENABLED=true
+            - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+        ports:
+            - "3000:3000"

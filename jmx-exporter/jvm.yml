@@ -1,0 +1,8 @@
+jmxUrl: service:jmx:rmi:///jndi/rmi://connect:9999/jmxrmi
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - "kafka.connect:*"
+  - "java.lang:type=GarbageCollector,*"
+  - "java.lang:type=Memory"
+ssl: false

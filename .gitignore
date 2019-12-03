@@ -1,0 +1,9 @@
+test.txt
+build
+.gradle
+.ipynb_checkpoints
+.DS_Store
+/.vscode
+.classpath
+.project
+.settings/
